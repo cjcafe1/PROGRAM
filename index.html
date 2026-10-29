@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>숫자야구 정답 추론기 (Number Baseball Solver)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter & Noto Sans KR -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        /* Custom scrollbar for visual appeal */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen p-3 md:p-6 flex flex-col items-center justify-start">
+
+    <!-- Container -->
+    <div class="max-w-4xl w-full bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden my-auto">
+        
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-6 sm:p-8 relative">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-extrabold flex items-center gap-3">
+                        <i class="fa-solid me-1 fa-baseball-bat-ball text-yellow-300"></i>
+                        숫자야구 정답 추론기
+                    </h1>
+                    <p class="text-blue-100 text-sm mt-1">
+                        입력한 3자리 숫자와 결과(S/B)를 통해 정답 후보를 자동으로 계산합니다.
+                    </p>
+                </div>
+                <!-- Reset Button -->
+                <button onclick="resetSolver()" class="bg-white/10 hover:bg-white/20 text-white border border-white/30 px-4 py-2 rounded-xl text-sm font-medium transition duration-200 flex items-center gap-2 backdrop-blur-sm self-end sm:self-auto">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    초기화
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="p-4 sm:p-8 space-y-6">
+
+            <!-- Tooltip / Rule Banner -->
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-900 flex items-start gap-3">
+                <i class="fa-solid fa-circle-info text-blue-600 text-lg mt-0.5 shrink-0"></i>
+                <div class="space-y-1">
+                    <p class="font-semibold">힌트 입력 도움말 (예: 2S1B란?)</p>
+                    <ul class="list-disc list-inside space-y-0.5 text-blue-800 text-xs sm:text-sm">
+                        <li><b>2S (2 Strike)</b>: 숫자 2개가 값과 위치(자리) 모두 일치</li>
+                        <li><b>1B (1 Ball)</b>: 숫자 1개가 값은 일치하지만 위치(자리)가 다름</li>
+                        <li><b>OUT / 0S 0B</b>: 일치하는 숫자가 전혀 없음</li>
+                        <li>서로 다른 3자리 숫자(0~9)만 사용 가능합니다.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Input Form Card -->
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-6 space-y-4">
+                <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square text-indigo-600"></i>
+                    새로운 시도 기록 추가
+                </h2>
+
+                <form id="hintForm" onsubmit="handleAddHint(event)" class="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:gap-4 items-end">
+                    
+                    <!-- 3-Digit Guess Input -->
+                    <div class="sm:col-span-5 space-y-1">
+                        <label class="block text-xs font-semibold text-slate-600">시도한 숫자 (3자리)</label>
+                        <input type="text" id="guessInput" maxlength="3" pattern="[0-9]{3}" placeholder="예: 123" required
+                            class="w-full text-center tracking-widest text-lg font-bold py-2.5 px-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition">
+                    </div>
+
+                    <!-- Result Selectors (Strike & Ball) -->
+                    <div class="sm:col-span-4 grid grid-cols-2 gap-2">
+                        <div class="space-y-1">
+                            <label class="block text-xs font-semibold text-emerald-700">스트라이크 (S)</label>
+                            <select id="strikeInput" class="w-full text-center font-bold py-2.5 px-2 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-emerald-700">
+                                <option value="0">0 S</option>
+                                <option value="1">1 S</option>
+                                <option value="2">2 S</option>
+                                <option value="3">3 S (정답)</option>
+                            </select>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="block text-xs font-semibold text-amber-700">볼 (B)</label>
+                            <select id="ballInput" class="w-full text-center font-bold py-2.5 px-2 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none text-amber-700">
+                                <option value="0">0 B</option>
+                                <option value="1">1 B</option>
+                                <option value="2">2 B</option>
+                                <option value="3">3 B</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Add Button -->
+                    <div class="sm:col-span-3">
+                        <button type="submit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-semibold rounded-xl shadow-md shadow-indigo-200 transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-plus"></i>
+                            힌트 추가
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Alert / Validation Message Area -->
+                <div id="errorMsg" class="hidden p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs sm:text-sm rounded-lg flex items-center gap-2">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span id="errorMsgText">중복되지 않는 3자리 숫자를 입력해 주세요.</span>
+                </div>
+            </div>
+
+            <!-- Main Status Indicator & Candidate Counter -->
+            <div id="statusCard" class="p-5 rounded-xl border transition-all duration-300 bg-indigo-50 border-indigo-200 text-indigo-900">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                    <div>
+                        <span class="text-xs uppercase font-bold tracking-wider text-indigo-600 block">남은 정답 후보</span>
+                        <div class="flex items-baseline gap-2">
+                            <span id="candidateCount" class="text-3xl font-black text-indigo-700">720</span>
+                            <span class="text-sm font-medium text-slate-600">개 / 총 720개</span>
+                        </div>
+                    </div>
+                    <!-- Single Solution Banner (Hidden by default) -->
+                    <div id="solutionBadge" class="hidden bg-emerald-500 text-white font-bold text-base px-4 py-2 rounded-xl shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-trophy text-yellow-300 text-lg"></i>
+                        <span>정답 확정: <span id="finalAnswer" class="text-yellow-200 text-xl tracking-wider">---</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Split View: History Table & Candidate List -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                <!-- Input History List -->
+                <div class="bg-white border border-slate-200 rounded-xl p-5 flex flex-col">
+                    <h3 class="font-bold text-slate-800 text-base mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-indigo-600"></i>
+                        입력된 힌트 목록 (<span id="historyCount">0</span>)
+                    </h3>
+                    
+                    <div id="historyEmpty" class="text-center py-8 text-slate-400 text-sm my-auto">
+                        <i class="fa-solid fa-folder-open text-3xl mb-2 text-slate-300 block"></i>
+                        아직 입력된 힌트가 없습니다.
+                    </div>
+
+                    <div id="historyTableWrapper" class="hidden overflow-x-auto max-h-[300px] overflow-y-auto border border-slate-100 rounded-lg">
+                        <table class="w-full text-left border-collapse text-sm">
+                            <thead class="bg-slate-100 text-slate-600 text-xs uppercase sticky top-0">
+                                <tr>
+                                    <th class="py-2.5 px-3">#</th>
+                                    <th class="py-2.5 px-3">시도 숫자</th>
+                                    <th class="py-2.5 px-3">판정 결과</th>
+                                    <th class="py-2.5 px-3 text-right">삭제</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTbody" class="divide-y divide-slate-100 text-slate-700">
+                                <!-- JS inserts history rows here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Candidates List Display -->
+                <div class="bg-white border border-slate-200 rounded-xl p-5 flex flex-col">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                            <i class="fa-solid fa-lightbulb text-amber-500"></i>
+                            가능한 후보 목록
+                        </h3>
+                        <span id="candidateLimitNote" class="text-xs text-slate-400"></span>
+                    </div>
+
+                    <div id="candidateBox" class="bg-slate-50 border border-slate-200 rounded-xl p-4 flex-grow max-h-[300px] overflow-y-auto">
+                        <div id="candidateGrid" class="grid grid-cols-4 sm:grid-cols-5 gap-2 text-center text-sm font-mono font-bold text-slate-700">
+                            <!-- JS populates candidates here -->
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Naver Blog Code Embed Guide Modal Trigger / Code Footer -->
+            <div class="bg-slate-100 rounded-xl p-4 text-xs text-slate-600 space-y-2 border border-slate-200">
+                <p class="font-bold text-slate-700 flex items-center gap-1.5">
+                    <i class="fa-solid fa-code text-indigo-600"></i>
+                    네이버 블로그 및 외부 퍼가기 안내
+                </p>
+                <p>
+                    이 프로그래밍 코드는 단일 HTML 파일로 구성되어 있습니다. 웹 호스팅(GitHub Pages 등)에 업로드 후 네이버 블로그에 <b>iFrame 링크</b>로 연결하거나, HTML을 직접 지원하는 플랫폼에 바로 삽입하여 실행할 수 있습니다.
+                </p>
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+        <footer class="bg-slate-50 border-t border-slate-100 py-4 px-6 text-center text-xs text-slate-400">
+            © 2026 3-Digit Number Baseball Logic Solver. All rights reserved.
+        </footer>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Store all 720 initial valid candidates (3-digit unique numbers, 012 ~ 987)
+        let allPossible = [];
+        let remainingCandidates = [];
+        let historyList = [];
+
+        // Generate all valid 3-digit permutation numbers (0-9 unique)
+        function initCandidates() {
+            allPossible = [];
+            for (let i = 0; i <= 9; i++) {
+                for (let j = 0; j <= 9; j++) {
+                    if (j === i) continue;
+                    for (let k = 0; k <= 9; k++) {
+                        if (k === i || k === j) continue;
+                        allPossible.push(`${i}${j}${k}`);
+                    }
+                }
+            }
+            remainingCandidates = [...allPossible];
+        }
+
+        // Calculate Strike & Ball between a guess and target candidate
+        function getStrikeAndBall(guess, target) {
+            let strikes = 0;
+            let balls = 0;
+
+            for (let i = 0; i < 3; i++) {
+                if (guess[i] === target[i]) {
+                    strikes++;
+                } else if (target.includes(guess[i])) {
+                    balls++;
+                }
+            }
+            return { strikes, balls };
+        }
+
+        // Validate if 3 digits are valid (0-9 unique digits)
+        function isValidGuess(guess) {
+            if (!/^[0-9]{3}$/.test(guess)) return false;
+            return (guess[0] !== guess[1] && guess[1] !== guess[2] && guess[0] !== guess[2]);
+        }
+
+        // Handle Add Hint Form Submission
+        function handleAddHint(e) {
+            e.preventDefault();
+            hideError();
+
+            const guessInput = document.getElementById('guessInput');
+            const strikeInput = document.getElementById('strikeInput');
+            const ballInput = document.getElementById('ballInput');
+
+            const guess = guessInput.value.trim();
+            const strikes = parseInt(strikeInput.value, 10);
+            const balls = parseInt(ballInput.value, 10);
+
+            // Validation
+            if (!isValidGuess(guess)) {
+                showError("서로 다른 3자리 숫자(0~9)를 입력해 주세요. (예: 123)");
+                return;
+            }
+
+            if (strikes + balls > 3) {
+                showError("스트라이크와 볼의 합은 3을 초과할 수 없습니다!");
+                return;
+            }
+
+            // Push to history
+            historyList.push({ guess, strikes, balls });
+            
+            // Clear Input
+            guessInput.value = '';
+            strikeInput.value = '0';
+            ballInput.value = '0';
+            guessInput.focus();
+
+            // Re-evaluate candidates based on all history
+            recalculateCandidates();
+        }
+
+        // Remove a history item
+        function removeHistory(index) {
+            historyList.splice(index, 1);
+            recalculateCandidates();
+        }
+
+        // Reset Solver
+        function resetSolver() {
+            historyList = [];
+            hideError();
+            document.getElementById('guessInput').value = '';
+            document.getElementById('strikeInput').value = '0';
+            document.getElementById('ballInput').value = '0';
+            recalculateCandidates();
+        }
+
+        // Recalculate remaining candidates from scratch based on history list
+        function recalculateCandidates() {
+            let candidates = [...allPossible];
+
+            for (const item of historyList) {
+                candidates = candidates.filter(cand => {
+                    const res = getStrikeAndBall(item.guess, cand);
+                    return res.strikes === item.strikes && res.balls === item.balls;
+                });
+            }
+
+            remainingCandidates = candidates;
+            updateUI();
+        }
+
+        // Render UI Updates
+        function updateUI() {
+            const count = remainingCandidates.length;
+            const candidateCountEl = document.getElementById('candidateCount');
+            const statusCard = document.getElementById('statusCard');
+            const solutionBadge = document.getElementById('solutionBadge');
+            const finalAnswerEl = document.getElementById('finalAnswer');
+
+            candidateCountEl.textContent = count;
+
+            // Update status styles & badges
+            if (count === 1) {
+                statusCard.className = "p-5 rounded-xl border transition-all duration-300 bg-emerald-50 border-emerald-300 text-emerald-900";
+                solutionBadge.classList.remove('hidden');
+                finalAnswerEl.textContent = remainingCandidates[0];
+                hideError();
+            } else if (count === 0) {
+                statusCard.className = "p-5 rounded-xl border transition-all duration-300 bg-rose-50 border-rose-300 text-rose-900";
+                solutionBadge.classList.add('hidden');
+                showError("모순이 발생했습니다! 입력된 힌트에 해당하는 정답 후보가 없습니다. 판정(S/B)을 확인해 주세요.");
+            } else {
+                statusCard.className = "p-5 rounded-xl border transition-all duration-300 bg-indigo-50 border-indigo-200 text-indigo-900";
+                solutionBadge.classList.add('hidden');
+                hideError();
+            }
+
+            // Update History Table
+            renderHistoryTable();
+
+            // Update Candidate Grid
+            renderCandidateGrid();
+        }
+
+        // Render History Table
+        function renderHistoryTable() {
+            const historyEmpty = document.getElementById('historyEmpty');
+            const historyTableWrapper = document.getElementById('historyTableWrapper');
+            const historyTbody = document.getElementById('historyTbody');
+            const historyCount = document.getElementById('historyCount');
+
+            historyCount.textContent = historyList.length;
+
+            if (historyList.length === 0) {
+                historyEmpty.classList.remove('hidden');
+                historyTableWrapper.classList.add('hidden');
+                return;
+            }
+
+            historyEmpty.classList.add('hidden');
+            historyTableWrapper.classList.remove('hidden');
+
+            historyTbody.innerHTML = historyList.map((item, idx) => {
+                let badgeClass = "bg-slate-100 text-slate-700";
+                let textResult = "";
+
+                if (item.strikes === 3) {
+                    badgeClass = "bg-emerald-100 text-emerald-800 font-bold";
+                    textResult = "3S (정답!)";
+                } else if (item.strikes === 0 && item.balls === 0) {
+                    badgeClass = "bg-slate-200 text-slate-500";
+                    textResult = "OUT";
+                } else {
+                    badgeClass = "bg-indigo-50 text-indigo-700 font-semibold";
+                    textResult = `${item.strikes}S ${item.balls}B`;
+                }
+
+                return `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="py-2.5 px-3 font-medium text-slate-400">${idx + 1}</td>
+                        <td class="py-2.5 px-3 font-bold text-slate-800 tracking-wider">${item.guess}</td>
+                        <td class="py-2.5 px-3">
+                            <span class="inline-block px-2 py-0.5 text-xs rounded-md ${badgeClass}">
+                                ${textResult}
+                            </span>
+                        </td>
+                        <td class="py-2.5 px-3 text-right">
+                            <button onclick="removeHistory(${idx})" class="text-slate-400 hover:text-rose-500 transition px-1">
+                                <i class="fa-regular fa-trash-can"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Render Candidate Grid
+        function renderCandidateGrid() {
+            const candidateGrid = document.getElementById('candidateGrid');
+            const candidateLimitNote = document.getElementById('candidateLimitNote');
+
+            const maxDisplay = 100;
+            const displayList = remainingCandidates.slice(0, maxDisplay);
+
+            if (remainingCandidates.length > maxDisplay) {
+                candidateLimitNote.textContent = `상위 ${maxDisplay}개만 표시`;
+            } else {
+                candidateLimitNote.textContent = '';
+            }
+
+            if (remainingCandidates.length === 0) {
+                candidateGrid.innerHTML = `<div class="col-span-full py-8 text-slate-400 text-xs">가능한 후보가 없습니다.</div>`;
+                return;
+            }
+
+            candidateGrid.innerHTML = displayList.map(cand => `
+                <div class="py-1.5 px-2 bg-white border border-slate-200 rounded-lg shadow-sm hover:border-indigo-400 hover:text-indigo-600 transition">
+                    ${cand}
+                </div>
+            `).join('');
+        }
+
+        // Show Error Message
+        function showError(msg) {
+            const errorMsg = document.getElementById('errorMsg');
+            const errorMsgText = document.getElementById('errorMsgText');
+            errorMsgText.textContent = msg;
+            errorMsg.classList.remove('hidden');
+        }
+
+        // Hide Error Message
+        function hideError() {
+            const errorMsg = document.getElementById('errorMsg');
+            errorMsg.classList.add('hidden');
+        }
+
+        // Initialize App on Page Load
+        window.onload = function() {
+            initCandidates();
+            updateUI();
+        };
+    </script>
+</body>
+</html>
